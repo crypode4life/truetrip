@@ -57,14 +57,29 @@ export default function TrueTrip() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          prompt: prompts[feature] + " Return ONLY valid JSON, no markdown, no backticks."
+          prompt: prompts[feature] + " Return ONLY valid JSON, no markdown, no backticks, no extra text."
         })
       });
+      if (!res.ok) throw new Error("API error: " + res.status);
       const data = await res.json();
-      const raw = data.content[0].text.trim().replace(/```json|```/g, "").trim();
+      let raw = "";
+      if (data.content && data.content[0] && data.content[0].text) {
+        raw = data.content[0].text;
+      } else if (data.text) {
+        raw = data.text;
+      } else {
+        raw = JSON.stringify(data);
+      }
+      raw = raw.trim().replace(/```json/g, "").replace(/```/g, "").trim();
+      const firstBrace = raw.indexOf("{");
+      const lastBrace = raw.lastIndexOf("}");
+      if (firstBrace !== -1 && lastBrace !== -1) {
+        raw = raw.substring(firstBrace, lastBrace + 1);
+      }
       const parsed = JSON.parse(raw);
       setAiContent(prev => ({ ...prev, [feature]: parsed }));
     } catch (e) {
+      console.error("AI error:", e);
       setError("Couldn't load this section. Please try again!");
     }
     setLoading(false);
